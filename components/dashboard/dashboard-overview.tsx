@@ -18,10 +18,10 @@ export function DashboardOverview({
   monthlyExpenses: initialExpenses,
   userId,
 }: DashboardOverviewProps) {
+  const [totalBalance, setTotalBalance] = useState(initialBalance)
   const [monthlyIncome, setMonthlyIncome] = useState(initialIncome)
   const [monthlyExpenses, setMonthlyExpenses] = useState(initialExpenses)
 
-  const totalBalance = monthlyIncome - monthlyExpenses
   const netCashFlow = monthlyIncome - monthlyExpenses
   const savingsRate = monthlyIncome > 0 ? ((netCashFlow / monthlyIncome) * 100).toFixed(1) : "0"
 
@@ -36,6 +36,15 @@ export function DashboardOverview({
     const supabase = createClient()
 
     const fetchData = async () => {
+      // Get accounts total balance
+      const { data: accounts } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("user_id", userId)
+
+      const newTotalBalance = accounts?.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0
+      setTotalBalance(newTotalBalance)
+
       // Get current month transactions
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
@@ -55,6 +64,23 @@ export function DashboardOverview({
       setMonthlyIncome(newIncome)
       setMonthlyExpenses(newExpenses)
     }
+
+    // Subscribe to accounts changes
+    const accountsChannel = supabase
+      .channel("dashboard-accounts")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "accounts",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchData()
+        },
+      )
+      .subscribe()
 
     // Subscribe to transactions changes
     const transactionsChannel = supabase
@@ -90,6 +116,7 @@ export function DashboardOverview({
       .subscribe()
 
     return () => {
+      supabase.removeChannel(accountsChannel)
       supabase.removeChannel(transactionsChannel)
       supabase.removeChannel(budgetsChannel)
     }
@@ -106,7 +133,7 @@ export function DashboardOverview({
           <div className={`text-2xl font-bold ${totalBalance >= 0 ? "text-chart-1" : "text-chart-5"}`}>
             {formatCurrency(totalBalance)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Income - Expenses this month</p>
+          <p className="text-xs text-muted-foreground mt-1">Total from all accounts</p>
         </CardContent>
       </Card>
 
