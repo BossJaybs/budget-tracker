@@ -2,22 +2,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star } from "lucide-react"
 
-const testimonials = [
-  {
-    name: "Marcus Johnson",
-    role: "Software Engineer",
-    avatar: "/professional-man-headshot.png",
-    content:
-      "Finally, a budget app that doesn't feel overwhelming. The analytics are powerful but the UI keeps everything simple and clean.",
-  },
-  {
-    name: "Emily Rodriguez",
-    role: "Small Business Owner",
-    avatar: "/professional-businesswoman-headshot.png",
-    content:
-      "I've tried dozens of finance apps. AlphaWealth is the first one I've actually stuck with. The budget rollover feature is brilliant.",
-  },
-]
+const testimonials = []
 
 export function LandingTestimonials() {
   return (
