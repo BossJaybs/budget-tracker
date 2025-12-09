@@ -65,7 +65,11 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DashboardRecentTransactions transactions={recentTransactions || []} />
-        <DashboardBudgetProgress budgets={budgets || []} transactions={transactions || []} />
+        <DashboardBudgetProgress
+          initialBudgets={budgets || []}
+          initialTransactions={transactions || []}
+          userId={user.id}
+        />
       </div>
     </div>
   )

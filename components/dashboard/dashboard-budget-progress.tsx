@@ -1,16 +1,90 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { Budget, Transaction, BudgetItem } from "@/lib/types"
 import { ArrowRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface DashboardBudgetProgressProps {
-  budgets: (Budget & { budget_items: BudgetItem[] })[]
-  transactions: Transaction[]
+  initialBudgets: (Budget & { budget_items: BudgetItem[] })[]
+  initialTransactions: Transaction[]
+  userId: string
 }
 
-export function DashboardBudgetProgress({ budgets, transactions }: DashboardBudgetProgressProps) {
+export function DashboardBudgetProgress({ initialBudgets, initialTransactions, userId }: DashboardBudgetProgressProps) {
+  const [budgets, setBudgets] = useState(initialBudgets)
+  const [transactions, setTransactions] = useState(initialTransactions)
+
+  // Real-time updates for budgets and transactions
+  useEffect(() => {
+    const supabase = createClient()
+
+    const fetchData = async () => {
+      // Get current month budgets
+      const { data: budgetsData } = await supabase
+        .from("budgets")
+        .select("*, budget_items(*, category:categories(*))")
+        .eq("user_id", userId)
+        .lte("start_date", new Date().toISOString().split("T")[0])
+        .gte("end_date", new Date().toISOString().split("T")[0])
+
+      // Get current month transactions
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { data: transactionsData } = await supabase
+        .from("transactions")
+        .select("*, account:accounts(*), category:categories(*)")
+        .eq("user_id", userId)
+        .gte("date", startOfMonth.toISOString().split("T")[0])
+
+      if (budgetsData) setBudgets(budgetsData)
+      if (transactionsData) setTransactions(transactionsData)
+    }
+
+    const budgetsChannel = supabase
+      .channel("dashboard-budgets-progress")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "budgets",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchData()
+        },
+      )
+      .subscribe()
+
+    const transactionsChannel = supabase
+      .channel("dashboard-transactions-progress")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchData()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(budgetsChannel)
+      supabase.removeChannel(transactionsChannel)
+    }
+  }, [userId])
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
