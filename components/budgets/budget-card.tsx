@@ -40,9 +40,7 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
   const [currentSpending, setCurrentSpending] = useState(0)
   const [isLoadingSpending, setIsLoadingSpending] = useState(true)
   const [isUpdatingAmount, setIsUpdatingAmount] = useState(false)
-  const [isAmountDialogOpen, setIsAmountDialogOpen] = useState(false)
   const [amountInput, setAmountInput] = useState("")
-  const [operationType, setOperationType] = useState<"add" | "subtract">("add")
 
   // Get type info for display
   const budgetType = (budget as Budget & { type?: string }).type || "expense"
@@ -156,22 +154,16 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     setIsDeleteDialogOpen(false)
   }
 
-  const handleOpenAmountDialog = (type: "add" | "subtract") => {
-    setOperationType(type)
-    setAmountInput("")
-    setIsAmountDialogOpen(true)
-  }
-
-  const handleConfirmAmount = () => {
+  const handleConfirmAmount = (type: "add" | "subtract") => {
     const amount = Number.parseFloat(amountInput)
     if (isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount")
       return
     }
 
-    const change = operationType === "add" ? amount : -amount
+    const change = type === "add" ? amount : -amount
     handleUpdateAmount(change)
-    setIsAmountDialogOpen(false)
+    setAmountInput("")
   }
 
   const handleUpdateAmount = async (change: number) => {
@@ -187,6 +179,20 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
 
     const transactionType = change > 0 ? "income" : "expense"
     const amount = Math.abs(change)
+
+    // Update budget amount
+    const newAmount = Math.max(0, Number(budget.amount) + change)
+    const { error: budgetError } = await supabase
+      .from("budgets")
+      .update({ amount: newAmount })
+      .eq("id", budget.id)
+      .eq("user_id", userId)
+
+    if (budgetError) {
+      toast.error("Failed to update budget amount")
+      setIsUpdatingAmount(false)
+      return
+    }
 
     // Create transaction
     const transactionData = {
@@ -228,6 +234,8 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
         toast.error("Failed to update account balance")
       } else {
         toast.success(`${transactionType === "income" ? "Income" : "Expense"} added`)
+        const updatedBudget = { ...budget, amount: newAmount }
+        onBudgetUpdate?.(updatedBudget)
       }
     }
 
@@ -280,24 +288,76 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
             <div className="flex items-center gap-1">
               {!isPast && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleOpenAmountDialog("subtract")}
-                    disabled={isUpdatingAmount}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleOpenAmountDialog("add")}
-                    disabled={isUpdatingAmount}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={isUpdatingAmount}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Subtract Expense</DialogTitle>
+                        <DialogDescription>Enter the amount to subtract from the budget.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="amount">Amount</Label>
+                          <Input
+                            id="amount"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={amountInput}
+                            onChange={(e) => setAmountInput(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={() => handleConfirmAmount("subtract")}>OK</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={isUpdatingAmount}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Income</DialogTitle>
+                        <DialogDescription>Enter the amount to add to the budget.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="amount">Amount</Label>
+                          <Input
+                            id="amount"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={amountInput}
+                            onChange={(e) => setAmountInput(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={() => handleConfirmAmount("add")}>OK</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
               <DropdownMenu>
