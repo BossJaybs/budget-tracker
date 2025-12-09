@@ -116,9 +116,9 @@ export function BudgetDialog({ open, onOpenChange, budget, categories, accounts,
           account_id: accountId,
           category_id: categoryId || null,
           amount: Number(amount),
-          type,
+          type: "expense",
           description: name.trim(),
-          date: format(startDate, "yyyy-MM-dd"),
+          date: new Date().toISOString().split("T")[0],
         }
 
         const { error: transactionError } = await supabase.from("transactions").insert(transactionData)
