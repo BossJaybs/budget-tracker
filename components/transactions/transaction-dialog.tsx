@@ -114,6 +114,26 @@ export function TransactionDialog({
 
     let result
     if (isEditing && transaction) {
+      // For editing, calculate the difference and update account balance
+      const oldAmount = transaction.amount
+      const newAmount = Number.parseFloat(data.amount)
+      const difference = newAmount - oldAmount
+
+      // Update account balance based on transaction type
+      if (data.type === "income") {
+        await supabase
+          .from("accounts")
+          .update({ balance: supabase.sql`balance + ${difference}` })
+          .eq("id", data.account_id)
+          .eq("user_id", userId)
+      } else if (data.type === "expense") {
+        await supabase
+          .from("accounts")
+          .update({ balance: supabase.sql`balance - ${difference}` })
+          .eq("id", data.account_id)
+          .eq("user_id", userId)
+      }
+
       result = await supabase
         .from("transactions")
         .update(transactionData)
@@ -122,6 +142,21 @@ export function TransactionDialog({
         .select("*, account:accounts(*), category:categories(*)")
         .single()
     } else {
+      // For new transactions, update account balance
+      if (data.type === "income") {
+        await supabase
+          .from("accounts")
+          .update({ balance: supabase.sql`balance + ${Number.parseFloat(data.amount)}` })
+          .eq("id", data.account_id)
+          .eq("user_id", userId)
+      } else if (data.type === "expense") {
+        await supabase
+          .from("accounts")
+          .update({ balance: supabase.sql`balance - ${Number.parseFloat(data.amount)}` })
+          .eq("id", data.account_id)
+          .eq("user_id", userId)
+      }
+
       result = await supabase
         .from("transactions")
         .insert(transactionData)
