@@ -4,13 +4,6 @@ import { Star } from "lucide-react"
 
 const testimonials = [
   {
-    name: "Sarah Chen",
-    role: "Freelance Designer",
-    avatar: "/professional-woman-headshot.png",
-    content:
-      "AlphaWealth completely changed how I manage my freelance income. The calendar view helps me see exactly when I need to save more.",
-  },
-  {
     name: "Marcus Johnson",
     role: "Software Engineer",
     avatar: "/professional-man-headshot.png",
