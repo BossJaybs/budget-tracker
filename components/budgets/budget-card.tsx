@@ -177,16 +177,27 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     }
 
     // Update account balance
-    const balanceChange = transactionType === "income" ? amount : -amount
-    const { error: accountError } = await supabase.rpc("increment_account_balance", {
-      account_id: (budget as any).account_id,
-      amount: balanceChange,
-    })
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("balance")
+      .eq("id", (budget as any).account_id)
+      .single()
 
-    if (accountError) {
-      toast.error("Failed to update account balance")
-    } else {
-      toast.success(`${transactionType === "income" ? "Income" : "Expense"} added`)
+    if (account) {
+      const balanceChange = transactionType === "income" ? amount : -amount
+      const newBalance = Number(account.balance) + balanceChange
+
+      const { error: accountError } = await supabase
+        .from("accounts")
+        .update({ balance: newBalance })
+        .eq("id", (budget as any).account_id)
+        .eq("user_id", userId)
+
+      if (accountError) {
+        toast.error("Failed to update account balance")
+      } else {
+        toast.success(`${transactionType === "income" ? "Income" : "Expense"} added`)
+      }
     }
 
     setIsUpdatingAmount(false)
