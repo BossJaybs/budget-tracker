@@ -35,10 +35,7 @@ interface BudgetDialogProps {
 export function BudgetDialog({ open, onOpenChange, budget, categories, accounts, userId, onSaved }: BudgetDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [name, setName] = useState("")
-  const [type, setType] = useState<"income" | "expense" | "transfer">("expense")
   const [amount, setAmount] = useState("")
-  const [startDate, setStartDate] = useState<Date>(new Date())
-  const [endDate, setEndDate] = useState<Date>(new Date())
   const [accountId, setAccountId] = useState("")
   const [categoryId, setCategoryId] = useState("")
 
@@ -47,28 +44,19 @@ export function BudgetDialog({ open, onOpenChange, budget, categories, accounts,
   useEffect(() => {
     if (budget) {
       setName(budget.name)
-      setType((budget as Budget & { type?: "income" | "expense" | "transfer" }).type || "expense")
       setAmount(String(budget.amount))
-      setStartDate(new Date(budget.start_date))
-      setEndDate(new Date(budget.end_date))
       setAccountId((budget as Budget & { account_id?: string }).account_id || "")
       setCategoryId((budget as Budget & { category_id?: string }).category_id || "")
     } else {
       setName("")
-      setType("expense")
       setAmount("")
-      setStartDate(new Date())
-      setEndDate(new Date())
       setAccountId("")
       setCategoryId("")
     }
   }, [budget, open])
 
-  // Filter categories based on type
-  const filteredCategories = categories.filter((cat) => {
-    if (type === "transfer") return true
-    return cat.type === type
-  })
+  // Filter categories based on expense (default for budgets)
+  const filteredCategories = categories.filter((cat) => cat.type === "expense")
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -92,10 +80,10 @@ export function BudgetDialog({ open, onOpenChange, budget, categories, accounts,
     const budgetData = {
       user_id: userId,
       name: name.trim(),
-      type,
+      type: "expense" as const,
       amount: Number(amount),
-      start_date: format(startDate, "yyyy-MM-dd"),
-      end_date: format(endDate, "yyyy-MM-dd"),
+      start_date: new Date().toISOString().split("T")[0],
+      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
       account_id: accountId,
       category_id: categoryId || null,
       period: "custom" as const,
@@ -173,20 +161,6 @@ export function BudgetDialog({ open, onOpenChange, budget, categories, accounts,
           </div>
 
           <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={type} onValueChange={(value: "income" | "expense" | "transfer") => setType(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="expense">Expense</SelectItem>
-                <SelectItem value="income">Income</SelectItem>
-                <SelectItem value="transfer">Transfer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="amount">Amount</Label>
             <Input
               id="amount"
@@ -195,37 +169,6 @@ export function BudgetDialog({ open, onOpenChange, budget, categories, accounts,
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(startDate, "MMM d, yyyy")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={startDate} onSelect={(date) => date && setStartDate(date)} />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(endDate, "MMM d, yyyy")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={endDate} onSelect={(date) => date && setEndDate(date)} />
-                </PopoverContent>
-              </Popover>
-            </div>
           </div>
 
           <div className="space-y-2">

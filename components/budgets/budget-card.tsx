@@ -15,7 +15,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import type { Budget } from "@/lib/types"
 import { MoreHorizontal, Pencil, Trash2, Calendar, ArrowUpRight, ArrowDownRight, ArrowLeftRight, Plus, Minus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -37,6 +40,9 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
   const [currentSpending, setCurrentSpending] = useState(0)
   const [isLoadingSpending, setIsLoadingSpending] = useState(true)
   const [isUpdatingAmount, setIsUpdatingAmount] = useState(false)
+  const [isAmountDialogOpen, setIsAmountDialogOpen] = useState(false)
+  const [amountInput, setAmountInput] = useState("")
+  const [operationType, setOperationType] = useState<"add" | "subtract">("add")
 
   // Get type info for display
   const budgetType = (budget as Budget & { type?: string }).type || "expense"
@@ -150,6 +156,24 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     setIsDeleteDialogOpen(false)
   }
 
+  const handleOpenAmountDialog = (type: "add" | "subtract") => {
+    setOperationType(type)
+    setAmountInput("")
+    setIsAmountDialogOpen(true)
+  }
+
+  const handleConfirmAmount = () => {
+    const amount = Number.parseFloat(amountInput)
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount")
+      return
+    }
+
+    const change = operationType === "add" ? amount : -amount
+    handleUpdateAmount(change)
+    setIsAmountDialogOpen(false)
+  }
+
   const handleUpdateAmount = async (change: number) => {
     setIsUpdatingAmount(true)
     const supabase = createClient()
@@ -260,8 +284,8 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => handleUpdateAmount(-10)}
-                    disabled={isUpdatingAmount || Number(budget.amount) <= 0}
+                    onClick={() => handleOpenAmountDialog("subtract")}
+                    disabled={isUpdatingAmount}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -269,7 +293,7 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => handleUpdateAmount(10)}
+                    onClick={() => handleOpenAmountDialog("add")}
                     disabled={isUpdatingAmount}
                   >
                     <Plus className="h-4 w-4" />
