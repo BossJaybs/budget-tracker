@@ -12,7 +12,9 @@ export const metadata: Metadata = {
   title: "AlphaWealth",
   description:
     "Personal budget tracking and spending analysis app. Track expenses, plan budgets, and gain insights into your financial health.",
-  generator: "v0.app",
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
