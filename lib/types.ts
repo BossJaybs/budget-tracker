@@ -55,6 +55,9 @@ export type Budget = {
   end_date: string
   amount: number
   rollover: boolean
+  account_id?: string
+  category_id?: string
+  type?: "income" | "expense" | "transfer"
   created_at: string
   updated_at: string
 }
