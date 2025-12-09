@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Progress } from "@/components/ui/progress"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import type { Budget } from "@/lib/types"
-import { MoreHorizontal, Pencil, Trash2, Calendar, ArrowUpRight, ArrowDownRight, ArrowLeftRight } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Calendar, ArrowUpRight, ArrowDownRight, ArrowLeftRight, Plus, Minus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -25,13 +26,20 @@ interface BudgetCardProps {
   budget: Budget
   onEdit: () => void
   onDelete: () => void
+  onBudgetUpdate?: (updatedBudget: Budget) => void
   userId: string
   isPast?: boolean
 }
 
-export function BudgetCard({ budget, onEdit, onDelete, userId, isPast }: BudgetCardProps) {
+export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, isPast }: BudgetCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [currentSpending, setCurrentSpending] = useState(0)
+  const [isLoadingSpending, setIsLoadingSpending] = useState(true)
+  const [isUpdatingAmount, setIsUpdatingAmount] = useState(false)
+
+  // Get type info for display
+  const budgetType = (budget as Budget & { type?: string }).type || "expense"
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -39,6 +47,91 @@ export function BudgetCard({ budget, onEdit, onDelete, userId, isPast }: BudgetC
       currency: "USD",
     }).format(amount)
   }
+
+  // Fetch current spending from transactions within budget period
+  useEffect(() => {
+    const fetchCurrentSpending = async () => {
+      setIsLoadingSpending(true)
+      const supabase = createClient()
+
+      try {
+        const { data: transactions, error } = await supabase
+          .from("transactions")
+          .select("amount, type")
+          .eq("user_id", userId)
+          .gte("date", budget.start_date)
+          .lte("date", budget.end_date)
+
+        if (error) {
+          console.error("Error fetching transactions:", error)
+          setCurrentSpending(0)
+        } else {
+          // Calculate spending based on budget type
+          let total = 0
+          transactions?.forEach((transaction) => {
+            if (budgetType === "expense" && transaction.type === "expense") {
+              total += Math.abs(Number(transaction.amount))
+            } else if (budgetType === "income" && transaction.type === "income") {
+              total += Number(transaction.amount)
+            }
+          })
+          setCurrentSpending(total)
+        }
+      } catch (error) {
+        console.error("Error:", error)
+        setCurrentSpending(0)
+      } finally {
+        setIsLoadingSpending(false)
+      }
+    }
+
+    fetchCurrentSpending()
+  }, [budget.id, budget.start_date, budget.end_date, budgetType, userId])
+
+  // Real-time updates for transactions
+  useEffect(() => {
+    const supabase = createClient()
+    
+    const transactionsChannel = supabase
+      .channel(`budget-${budget.id}-transactions`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Refetch current spending when transactions change
+          const fetchCurrentSpending = async () => {
+            const { data: transactions } = await supabase
+              .from("transactions")
+              .select("amount, type")
+              .eq("user_id", userId)
+              .gte("date", budget.start_date)
+              .lte("date", budget.end_date)
+
+            let total = 0
+            transactions?.forEach((transaction) => {
+              if (budgetType === "expense" && transaction.type === "expense") {
+                total += Math.abs(Number(transaction.amount))
+              } else if (budgetType === "income" && transaction.type === "income") {
+                total += Number(transaction.amount)
+              }
+            })
+            setCurrentSpending(total)
+          }
+          
+          fetchCurrentSpending()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(transactionsChannel)
+    }
+  }, [budget.id, budget.start_date, budget.end_date, budgetType, userId])
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -57,8 +150,30 @@ export function BudgetCard({ budget, onEdit, onDelete, userId, isPast }: BudgetC
     setIsDeleteDialogOpen(false)
   }
 
-  // Get type info for display
-  const budgetType = (budget as Budget & { type?: string }).type || "expense"
+  const handleUpdateAmount = async (change: number) => {
+    setIsUpdatingAmount(true)
+    const supabase = createClient()
+
+    const newAmount = Math.max(0, Number(budget.amount) + change)
+
+    const { error } = await supabase
+      .from("budgets")
+      .update({ amount: newAmount })
+      .eq("id", budget.id)
+      .eq("user_id", userId)
+
+    if (error) {
+      toast.error("Failed to update budget amount")
+    } else {
+      toast.success("Budget updated")
+      const updatedBudget = { ...budget, amount: newAmount }
+      onBudgetUpdate?.(updatedBudget)
+    }
+
+    setIsUpdatingAmount(false)
+  }
+
+  const progressPercentage = budget.amount > 0 ? Math.min((currentSpending / budget.amount) * 100, 100) : 0
 
   const getTypeIcon = () => {
     switch (budgetType) {
@@ -101,23 +216,47 @@ export function BudgetCard({ budget, onEdit, onDelete, userId, isPast }: BudgetC
                 {format(new Date(budget.start_date), "MMM d")} - {format(new Date(budget.end_date), "MMM d, yyyy")}
               </CardDescription>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onEdit}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-1">
+              {!isPast && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleUpdateAmount(-10)}
+                    disabled={isUpdatingAmount || Number(budget.amount) <= 0}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleUpdateAmount(10)}
+                    disabled={isUpdatingAmount}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onEdit}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -131,6 +270,20 @@ export function BudgetCard({ budget, onEdit, onDelete, userId, isPast }: BudgetC
               {budgetType === "income" ? "+" : budgetType === "expense" ? "-" : ""}
               {formatCurrency(Number(budget.amount))}
             </span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>
+                {isLoadingSpending ? "Loading..." : `${formatCurrency(currentSpending)} spent`}
+              </span>
+              <span>{formatCurrency(Number(budget.amount))} budget</span>
+            </div>
+            <Progress value={progressPercentage} className="h-2" />
+            <div className="text-xs text-muted-foreground text-center">
+              {progressPercentage.toFixed(1)}% used
+            </div>
           </div>
         </CardContent>
       </Card>

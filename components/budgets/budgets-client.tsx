@@ -132,6 +132,9 @@ export function BudgetsClient({ initialBudgets, categories, accounts, userId }: 
                     budget={budget}
                     onEdit={() => handleEditBudget(budget)}
                     onDelete={() => handleBudgetDeleted(budget.id)}
+                    onBudgetUpdate={(updatedBudget) => {
+                      setBudgets((prev) => prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b)))
+                    }}
                     userId={userId}
                   />
                 ))}
@@ -149,6 +152,9 @@ export function BudgetsClient({ initialBudgets, categories, accounts, userId }: 
                     budget={budget}
                     onEdit={() => handleEditBudget(budget)}
                     onDelete={() => handleBudgetDeleted(budget.id)}
+                    onBudgetUpdate={(updatedBudget) => {
+                      setBudgets((prev) => prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b)))
+                    }}
                     userId={userId}
                     isPast
                   />
