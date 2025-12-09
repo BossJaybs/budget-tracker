@@ -124,7 +124,7 @@ export function DashboardBudgetProgress({ initialBudgets, initialTransactions, u
         </Button>
       </CardHeader>
       <CardContent>
-        {budgetItems.length === 0 ? (
+        {activeBudgets.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No active budgets</p>
             <Button variant="link" asChild className="mt-2">
@@ -133,22 +133,49 @@ export function DashboardBudgetProgress({ initialBudgets, initialTransactions, u
           </div>
         ) : (
           <div className="space-y-4">
-            {budgetItems.slice(0, 5).map((item) => {
-              const percentage = Math.min((item.spent / Number(item.planned_amount)) * 100, 100)
-              const isOverBudget = item.spent > Number(item.planned_amount)
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Active Budgets</h4>
+              {activeBudgets.map((budget) => {
+                const totalSpent = budget.budget_items.reduce((sum, item) => sum + getCategorySpending(item.category_id), 0)
+                const totalBudget = budget.budget_items.reduce((sum, item) => sum + Number(item.planned_amount), 0)
+                const percentage = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0
+                const isOverBudget = totalSpent > totalBudget
 
-              return (
-                <div key={item.id} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{item.category?.name || "Uncategorized"}</span>
-                    <span className={isOverBudget ? "text-destructive" : "text-muted-foreground"}>
-                      {formatCurrency(item.spent)} / {formatCurrency(Number(item.planned_amount))}
-                    </span>
+                return (
+                  <div key={budget.id} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{budget.name}</span>
+                      <span className={isOverBudget ? "text-destructive" : "text-muted-foreground"}>
+                        {formatCurrency(totalSpent)} / {formatCurrency(totalBudget)}
+                      </span>
+                    </div>
+                    <Progress value={percentage} className={`h-2 ${isOverBudget ? "[&>div]:bg-destructive" : ""}`} />
                   </div>
-                  <Progress value={percentage} className={`h-2 ${isOverBudget ? "[&>div]:bg-destructive" : ""}`} />
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+
+            {budgetItems.length > 0 && (
+              <div className="space-y-3 border-t pt-4">
+                <h4 className="text-sm font-medium">Category Progress</h4>
+                {budgetItems.slice(0, 3).map((item) => {
+                  const percentage = Math.min((item.spent / Number(item.planned_amount)) * 100, 100)
+                  const isOverBudget = item.spent > Number(item.planned_amount)
+
+                  return (
+                    <div key={item.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{item.category?.name || "Uncategorized"}</span>
+                        <span className={isOverBudget ? "text-destructive" : "text-muted-foreground"}>
+                          {formatCurrency(item.spent)} / {formatCurrency(Number(item.planned_amount))}
+                        </span>
+                      </div>
+                      <Progress value={percentage} className={`h-2 ${isOverBudget ? "[&>div]:bg-destructive" : ""}`} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
