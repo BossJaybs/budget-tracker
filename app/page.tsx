@@ -1,0 +1,23 @@
+import { LandingHeader } from "@/components/landing/landing-header"
+import { LandingHero } from "@/components/landing/landing-hero"
+import { LandingFeatures } from "@/components/landing/landing-features"
+import { LandingStats } from "@/components/landing/landing-stats"
+import { LandingTestimonials } from "@/components/landing/landing-testimonials"
+import { LandingCTA } from "@/components/landing/landing-cta"
+import { LandingFooter } from "@/components/landing/landing-footer"
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <LandingHeader />
+      <main className="flex-1">
+        <LandingHero />
+        <LandingFeatures />
+        <LandingStats />
+        <LandingTestimonials />
+        <LandingCTA />
+      </main>
+      <LandingFooter />
+    </div>
+  )
+}
