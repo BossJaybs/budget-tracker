@@ -100,6 +100,12 @@ export function DashboardBudgetProgress({ initialBudgets, initialTransactions, u
       .reduce((sum, t) => sum + Number(t.amount), 0)
   }
 
+  // Get active budgets (current month)
+  const activeBudgets = budgets.filter((budget) => {
+    const today = new Date().toISOString().split("T")[0]
+    return budget.start_date <= today && budget.end_date >= today
+  }).slice(0, 3) // Limit to 3 for dashboard display
+
   // Get budget items with spending
   const budgetItems = budgets.flatMap((budget) =>
     budget.budget_items.map((item) => ({
