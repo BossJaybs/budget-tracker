@@ -154,20 +154,39 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     setIsUpdatingAmount(true)
     const supabase = createClient()
 
-    const newAmount = Math.max(0, Number(budget.amount) + change)
+    const transactionType = change > 0 ? "income" : "expense"
+    const amount = Math.abs(change)
 
-    const { error } = await supabase
-      .from("budgets")
-      .update({ amount: newAmount })
-      .eq("id", budget.id)
-      .eq("user_id", userId)
+    // Create transaction
+    const transactionData = {
+      user_id: userId,
+      account_id: (budget as any).account_id,
+      category_id: (budget as any).category_id || null,
+      amount: amount,
+      type: transactionType,
+      description: `${budget.name} - ${transactionType}`,
+      date: new Date().toISOString().split("T")[0],
+    }
 
-    if (error) {
-      toast.error("Failed to update budget amount")
+    const { error: transactionError } = await supabase.from("transactions").insert(transactionData)
+
+    if (transactionError) {
+      toast.error("Failed to create transaction")
+      setIsUpdatingAmount(false)
+      return
+    }
+
+    // Update account balance
+    const balanceChange = transactionType === "income" ? amount : -amount
+    const { error: accountError } = await supabase.rpc("increment_account_balance", {
+      account_id: (budget as any).account_id,
+      amount: balanceChange,
+    })
+
+    if (accountError) {
+      toast.error("Failed to update account balance")
     } else {
-      toast.success("Budget updated")
-      const updatedBudget = { ...budget, amount: newAmount }
-      onBudgetUpdate?.(updatedBudget)
+      toast.success(`${transactionType === "income" ? "Income" : "Expense"} added`)
     }
 
     setIsUpdatingAmount(false)

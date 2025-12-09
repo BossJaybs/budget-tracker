@@ -121,17 +121,15 @@ export function TransactionDialog({
 
       // Update account balance based on transaction type
       if (data.type === "income") {
-        await supabase
-          .from("accounts")
-          .update({ balance: supabase.sql`balance + ${difference}` })
-          .eq("id", data.account_id)
-          .eq("user_id", userId)
+        await supabase.rpc("increment_account_balance", {
+          account_id: data.account_id,
+          amount: difference,
+        })
       } else if (data.type === "expense") {
-        await supabase
-          .from("accounts")
-          .update({ balance: supabase.sql`balance - ${difference}` })
-          .eq("id", data.account_id)
-          .eq("user_id", userId)
+        await supabase.rpc("increment_account_balance", {
+          account_id: data.account_id,
+          amount: -difference,
+        })
       }
 
       result = await supabase
