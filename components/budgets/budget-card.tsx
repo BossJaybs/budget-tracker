@@ -154,13 +154,20 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     setIsUpdatingAmount(true)
     const supabase = createClient()
 
+    const accountId = (budget as any).account_id
+    if (!accountId) {
+      toast.error("Please edit the budget to select an account first")
+      setIsUpdatingAmount(false)
+      return
+    }
+
     const transactionType = change > 0 ? "income" : "expense"
     const amount = Math.abs(change)
 
     // Create transaction
     const transactionData = {
       user_id: userId,
-      account_id: (budget as any).account_id,
+      account_id: accountId,
       category_id: (budget as any).category_id || null,
       amount: amount,
       type: transactionType,
@@ -180,7 +187,7 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
     const { data: account } = await supabase
       .from("accounts")
       .select("balance")
-      .eq("id", (budget as any).account_id)
+      .eq("id", accountId)
       .single()
 
     if (account) {
@@ -190,7 +197,7 @@ export function BudgetCard({ budget, onEdit, onDelete, onBudgetUpdate, userId, i
       const { error: accountError } = await supabase
         .from("accounts")
         .update({ balance: newBalance })
-        .eq("id", (budget as any).account_id)
+        .eq("id", accountId)
         .eq("user_id", userId)
 
       if (accountError) {
