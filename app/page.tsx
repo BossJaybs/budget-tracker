@@ -13,7 +13,6 @@ export default function LandingPage() {
         <LandingHero />
         <LandingFeatures />
         <LandingStats />
-        <LandingTestimonials />
         <LandingCTA />
       </main>
       <LandingFooter />
